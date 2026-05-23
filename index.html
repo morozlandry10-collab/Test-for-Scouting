@@ -2323,7 +2323,9 @@ function joinRoom(code, isHost) {
   syncRoomCode = code;
   fbIsHost = isHost;
   fbRoomRef = fbDb.ref('rooms/' + code);
-  if (!isHost) scoutSchedule = []; // clear local schedule; Firebase will provide it
+  if (!isHost) scoutSchedule = [];
+  // Persist room so we can rejoin after page reload
+  try { localStorage.setItem('hive_last_room', JSON.stringify({ code, isHost })); } catch(e) {}
 
   const settingsRef = fbRoomRef.child('settings');
   const settingsHandle = settingsRef.on('value', snap => {
@@ -2625,6 +2627,7 @@ function leaveSyncRoom() {
   fbIsHost = false;
   syncRoomCode = null;
   roomMasterPicklists = {};
+  try { localStorage.removeItem('hive_last_room'); } catch(e) {}
   renderRoomSubmissions();
   updateSyncUI(false, null, false);
   renderPresence([]);
@@ -3628,6 +3631,18 @@ function handleAuthStateChange(user) {
   if (scouterInput && !scouterInput.value && user.displayName) {
     scouterInput.value = user.displayName.split(' ')[0];
   }
+
+  // Auto-rejoin last room
+  try {
+    const last = localStorage.getItem('hive_last_room');
+    if (last && fbDb) {
+      const { code, isHost } = JSON.parse(last);
+      if (code) {
+        showToast(`🔥 Rejoining room ${code}…`);
+        setTimeout(() => joinRoom(code, isHost), 500);
+      }
+    }
+  } catch(e) {}
 }
 
 function applyTheme(theme) {
